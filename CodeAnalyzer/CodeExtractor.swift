@@ -37,6 +37,35 @@ final class FunctionVisitor: SyntaxVisitor, @unchecked Sendable {
         // No necesitamos profundizar dentro del cuerpo de la función
         return .skipChildren
     }
+    
+    // Captura variables (propiedades) que tengan bloques de código (didSet, get, set...)
+    nonisolated override func visit(
+        _ node: VariableDeclSyntax
+    ) -> SyntaxVisitorContinueKind {
+        
+        // Comprobamos si la variable tiene un bloque de código asociado
+        let hasCodeBlock = node.bindings.contains { binding in
+            binding.accessorBlock != nil
+        }
+        
+        if hasCodeBlock {
+            // Extraemos el nombre de la variable
+            let varName = node.bindings.first?.pattern.description.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Variable"
+            let fullCode = node.trimmedDescription
+            
+            print("[Debug] Propiedad con lógica encontrada en el AST: \(varName)")
+            
+            // Lo añadimos a la misma lista para que el M4 lo audite igual que una función
+            functions.append(
+                ExtractedFunction(
+                    name: "var \(varName) (Property Observer)",
+                    code: fullCode
+                )
+            )
+        }
+        
+        return .skipChildren
+    }
 }
 
 final class CodeExtractor {
